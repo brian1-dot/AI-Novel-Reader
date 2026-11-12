@@ -7,13 +7,14 @@ import android.speech.tts.*;
 import java.util.*;
 
 public class ReaderService extends Service implements TextToSpeech.OnInitListener {
- public static final String PLAY="com.example.novelreader.PLAY",PAUSE="com.example.novelreader.PAUSE",TIMER="com.example.novelreader.TIMER";
+ public static final String PLAY="com.example.novelreader.PLAY",PAUSE="com.example.novelreader.PAUSE",TIMER="com.example.novelreader.TIMER",STOP="com.example.novelreader.STOP";
  static final String CHANNEL="reader_audio";
  TextToSpeech tts; ArrayList<SentenceSplitter.Piece> chunks=new ArrayList<>(); String chapterText=""; int index=0;boolean ready=false,paused=false,playing=false;String title="小说听书";float rate=1f;String selectedVoice="";
  Handler handler=new Handler(Looper.getMainLooper());
  long stopAt=0;final Runnable stopTask=new Runnable(){@Override public void run(){if(stopAt>0&&android.os.SystemClock.elapsedRealtime()>=stopAt){stopAt=0;paused=true;playing=false;if(tts!=null)tts.stop();if(Build.VERSION.SDK_INT>=24)stopForeground(STOP_FOREGROUND_REMOVE);else stopForeground(true);stopSelf();}else if(stopAt>0)handler.postDelayed(this,1000);}};
  @Override public void onCreate(){super.onCreate();NotificationChannel channel=new NotificationChannel(CHANNEL,"听书播放",NotificationManager.IMPORTANCE_LOW);getSystemService(NotificationManager.class).createNotificationChannel(channel);tts=new TextToSpeech(this,this);}
  @Override public int onStartCommand(Intent i,int flags,int startId){if(i==null)return START_NOT_STICKY;
+ if(STOP.equals(i.getAction())){playing=false;paused=true;if(tts!=null)tts.stop();update("已停止上一章，切换章节中");return START_NOT_STICKY;}
  if(TIMER.equals(i.getAction())){int minutes=i.getIntExtra("minutes",0);handler.removeCallbacks(stopTask);stopAt=minutes>0?android.os.SystemClock.elapsedRealtime()+minutes*60000L:0;if(stopAt>0)handler.postDelayed(stopTask,1000);return START_NOT_STICKY;}
  if(PLAY.equals(i.getAction())){String txt=i.getStringExtra("text");if(txt==null)return START_NOT_STICKY;title=i.getStringExtra("title");if(title==null)title="小说听书";rate=i.getFloatExtra("rate",1f);selectedVoice=i.getStringExtra("voice");if(selectedVoice==null)selectedVoice="";if(ready)applyVoice();if(tts!=null)tts.stop();chunks.clear();index=0;paused=false;playing=true;
  chapterText=txt;chunks=SentenceSplitter.split(txt);startForeground(101,notification("准备朗读"));if(ready)speak();}
