@@ -18,13 +18,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Extract reader source ZIP
-        run: |
-          unzip -q AI_Novel_Reader_手机云编译版.zip -d project
       - name: Build debug APK
-        working-directory: project/AI_Novel_Reader
         run: gradle --no-daemon assembleDebug
       - uses: actions/upload-artifact@v4
         with:
           name: AI-Novel-Reader-APK
-          path: project/AI_Novel_Reader/app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/app-debug.apk
