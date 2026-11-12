@@ -1,5 +1,6 @@
 package com.example.novelreader;
 import android.Manifest;
+import android.app.AlertDialog;
 import android.app.Activity;
 import android.content.*;
 import android.content.pm.PackageManager;
