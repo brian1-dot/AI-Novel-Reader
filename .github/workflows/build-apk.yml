@@ -53,3 +53,9 @@ jobs:
         with:
           name: AI-Novel-Reader-APK
           path: app/build/outputs/apk/debug/app-debug.apk
+      - name: Report successful APK artifact
+        if: steps.compile.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --title "APK build succeeded ${GITHUB_SHA:0:7}" --body "Android debug APK compiled successfully. Download the AI-Novel-Reader-APK artifact from this run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
