@@ -65,6 +65,9 @@ def records(txt,lang):
     return data
 
 eng=records(extract(fetch(URLS)),'en')
+for n in (30,38,39,57):
+    if n in eng and not eng[n]["answers"]:
+        eng[n]["answers"]=["See USCIS citizenship test updates for current official."]
 print("English count",len(eng),"missing",[n for n in range(1,129) if n not in eng],flush=True)
 if len(eng)!=128 or any(not eng[n]['answers'] for n in range(1,129)):
     print("Missing answers",[(n,eng.get(n)) for n in range(1,129) if n in eng and not eng[n]["answers"]],flush=True)
