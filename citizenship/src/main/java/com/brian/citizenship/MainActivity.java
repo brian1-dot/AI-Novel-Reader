@@ -116,15 +116,67 @@ public class MainActivity extends Activity {
   loopAnswer=text("",22,TEAL,true);loopAnswer.setPadding(dp(12),dp(14),dp(12),dp(14));loopAnswer.setLineSpacing(dp(4),1.05f);body.addView(loopAnswer);
   loopAnswerZh=text("",15,MUTED,false);loopAnswerZh.setPadding(dp(10),dp(8),dp(10),dp(16));body.addView(loopAnswerZh);
   updateLoopCard(current,1,10,1,5,false,1);
-  subtitle("可选择本组题数、循环轮数。切换新题时，问题和答案会自动更新。");
-  Spinner amount=new Spinner(this);amount.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"5题","10题","20题"}));body.addView(amount);
-  Spinner loops=new Spinner(this);loops.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"1轮","3轮","5轮","10轮"}));loops.setSelection(3);body.addView(loops);
-  button("▶ 从第 "+(current+1)+" 题开始循环",()->{
-    int[] nums={5,10,20},cycles={1,3,5,10};
-    int amountValue=nums[amount.getSelectedItemPosition()],rounds=cycles[loops.getSelectedItemPosition()];
-    updateLoopCard(current,1,rounds,1,amountValue,false,1);
-    Intent intent=new Intent(this,StudyService.class).setAction("LOOP").putExtra("start",current).putExtra("count",amountValue).putExtra("loops",rounds).putExtra("rate",speed).putExtra("pause",2800);
-    startForegroundService(intent);status.setText("循环朗读已经开始");
+
+  subtitle("自定义复习范围：开始题号与结束题号均包含在内。例如50～55题，共6题。");
+  int savedStart=getPreferences(0).getInt("loop_start",Math.max(1,current+1));
+  int savedEnd=getPreferences(0).getInt("loop_end",Math.min(128,savedStart+4));
+  LinearLayout rangeRow=new LinearLayout(this);rangeRow.setOrientation(LinearLayout.HORIZONTAL);rangeRow.setGravity(Gravity.CENTER_VERTICAL);
+  TextView startLabel=text("从第",16,TEXT,true);rangeRow.addView(startLabel);
+  EditText startInput=new EditText(this);startInput.setSingleLine(true);startInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+  startInput.setText(String.valueOf(savedStart));startInput.setTextSize(20);startInput.setSelectAllOnFocus(true);
+  startInput.setGravity(Gravity.CENTER);startInput.setHint("1");startInput.setContentDescription("开始题号，1至128");
+  rangeRow.addView(startInput,new LinearLayout.LayoutParams(0,dp(58),1));
+  TextView middle=text("题  到第",16,TEXT,true);rangeRow.addView(middle);
+  EditText endInput=new EditText(this);endInput.setSingleLine(true);endInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+  endInput.setText(String.valueOf(savedEnd));endInput.setTextSize(20);endInput.setSelectAllOnFocus(true);
+  endInput.setGravity(Gravity.CENTER);endInput.setHint("128");endInput.setContentDescription("结束题号，1至128");
+  rangeRow.addView(endInput,new LinearLayout.LayoutParams(0,dp(58),1));
+  rangeRow.addView(text("题",16,TEXT,true));body.addView(rangeRow);
+  TextView rangeHint=text("当前范围："+savedStart+"～"+savedEnd+"题（共"+(savedEnd-savedStart+1)+"题）",15,TEAL,true);body.addView(rangeHint);
+  Spinner loops=new Spinner(this);loops.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"1轮","3轮","5轮","10轮"}));
+  int[] cycles={1,3,5,10};
+  int savedRounds=getPreferences(0).getInt("loop_rounds",10);int selectedRounds=3;
+  for(int r=0;r<cycles.length;r++)if(cycles[r]==savedRounds)selectedRounds=r;
+  loops.setSelection(selectedRounds);body.addView(text("循环轮数",15,TEXT,true));body.addView(loops);
+  final Runnable preview=()->{
+    try{
+      int from=Integer.parseInt(startInput.getText().toString().trim());
+      int to=Integer.parseInt(endInput.getText().toString().trim());
+      if(from<1||from>128||to<1||to>128||from>to){
+        rangeHint.setText("请输入1～128之间的题号，结束题号不能小于开始题号");
+        return;
+      }
+      rangeHint.setText("当前范围："+from+"～"+to+"题（共"+(to-from+1)+"题）");
+      updateLoopCard(from-1,1,cycles[loops.getSelectedItemPosition()],1,to-from+1,false,1);
+    }catch(Exception e){rangeHint.setText("请输入正确的开始和结束题号");}
+  };
+  android.text.TextWatcher rangeWatcher=new android.text.TextWatcher(){
+    public void beforeTextChanged(CharSequence x,int a,int c,int f){}
+    public void onTextChanged(CharSequence x,int a,int before,int count){preview.run();}
+    public void afterTextChanged(android.text.Editable x){}
+  };
+  startInput.addTextChangedListener(rangeWatcher);endInput.addTextChangedListener(rangeWatcher);
+  loops.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){
+    public void onNothingSelected(android.widget.AdapterView<?> v){}
+    public void onItemSelected(android.widget.AdapterView<?> v,View w,int p,long id){preview.run();}
+  });
+  preview.run();
+  button("▶ 开始循环所选题号",()->{
+    int from,to;
+    try{
+      from=Integer.parseInt(startInput.getText().toString().trim());
+      to=Integer.parseInt(endInput.getText().toString().trim());
+    }catch(Exception e){new AlertDialog.Builder(this).setTitle("题号不正确").setMessage("请输入1到128的数字。例如：从第50题到第55题。").setPositiveButton("确定",null).show();return;}
+    if(from<1||from>128||to<1||to>128||to<from){
+      new AlertDialog.Builder(this).setTitle("题号范围不正确").setMessage("开始和结束必须在1～128之间，并且结束题号不能小于开始题号。").setPositiveButton("确定",null).show();return;
+    }
+    int amountValue=to-from+1,rounds=cycles[loops.getSelectedItemPosition()];
+    getPreferences(0).edit().putInt("loop_start",from).putInt("loop_end",to).putInt("loop_rounds",rounds).apply();
+    updateLoopCard(from-1,1,rounds,1,amountValue,false,1);
+    Intent intent=new Intent(this,StudyService.class).setAction("LOOP").putExtra("start",from-1).putExtra("count",amountValue).putExtra("loops",rounds).putExtra("rate",speed).putExtra("pause",2800);
+    startForegroundService(intent);status.setText("正在循环第"+from+"～"+to+"题，共"+amountValue+"题，循环"+rounds+"轮");
+    ((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(startInput.getWindowToken(),0);
+    startInput.clearFocus();endInput.clearFocus();
   });
   actions("⏸ 暂停/继续",()->startService(new Intent(this,StudyService.class).setAction("PAUSE")),"■ 停止",()->stop());
   button("⏲ 设定睡眠定时",()->timer());
