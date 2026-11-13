@@ -26,7 +26,29 @@ public class ReaderService extends Service implements TextToSpeech.OnInitListene
  tts.setOnUtteranceProgressListener(new UtteranceProgressListener(){@Override public void onStart(String s){}@Override public void onDone(String s){handler.post(()->{if(playing&&!paused){index++;speak();}});}@Override public void onError(String s){handler.post(()->{paused=true;playing=false;update("朗读出错");});}});
  if(playing&&!paused)speak();}
  void applyVoice(){if(tts==null||!ready)return;try{tts.setLanguage(Locale.SIMPLIFIED_CHINESE);if(selectedVoice!=null&&!selectedVoice.isEmpty()){for(Voice v:tts.getVoices()){if(v.getName().equals(selectedVoice)){tts.setVoice(v);return;}}}else{for(Voice v:tts.getVoices()){String n=v.getName().toLowerCase(Locale.ROOT);if(v.getLocale().getLanguage().equals("zh")&&(n.contains("male")||n.contains("男"))){tts.setVoice(v);return;}}}}catch(Exception ignored){}}
- void speak(){if(!ready||paused||!playing)return;if(index>=chunks.size()){playing=false;update("本章已结束");sendBroadcast(new Intent("com.example.novelreader.NEXT").setPackage(getPackageName()));return;}tts.setSpeechRate(rate);int ret=tts.speak(chapterText.substring(chunks.get(index).start,chunks.get(index).end),TextToSpeech.QUEUE_FLUSH,null,"segment_"+index);if(ret==TextToSpeech.ERROR){playing=false;update("朗读失败");}else {sendBroadcast(new Intent("com.example.novelreader.SENTENCE").setPackage(getPackageName()).putExtra("index",index));update("朗读中 "+(index+1)+"/"+chunks.size());}}
+ // 仅清理提交到语音引擎的内容：阅读页面和逐句高亮保持原文不变。
+ String speechOnlyText(String raw){
+  if(raw==null)return "";
+  return raw.replaceAll("[\\\"“”„‟＂「」『』«»‘’‚‛‹›《》〈〉]", "")
+     .replaceAll("[★☆※◆◇■□●○◎♢♦♥♣♠▢▣▤▥]", "")
+     .replaceAll("[\\u200B\\u200C\\u200D\\uFEFF]", "")
+     .trim();
+ }
+ void speak(){if(!ready||paused||!playing)return;
+  while(index<chunks.size()){
+   SentenceSplitter.Piece p=chunks.get(index);
+   String onlyWords=speechOnlyText(chapterText.substring(p.start,p.end));
+   if(!onlyWords.isEmpty())break;
+   index++;
+  }
+  if(index>=chunks.size()){playing=false;update("本章已结束");sendBroadcast(new Intent("com.example.novelreader.NEXT").setPackage(getPackageName()));return;}
+  SentenceSplitter.Piece piece=chunks.get(index);
+  String utterance=speechOnlyText(chapterText.substring(piece.start,piece.end));
+  tts.setSpeechRate(rate);
+  int ret=tts.speak(utterance,TextToSpeech.QUEUE_FLUSH,null,"segment_"+index);
+  if(ret==TextToSpeech.ERROR){playing=false;update("朗读失败");}
+  else {sendBroadcast(new Intent("com.example.novelreader.SENTENCE").setPackage(getPackageName()).putExtra("index",index));update("朗读中 "+(index+1)+"/"+chunks.size());}
+ }
  Notification notification(String message){PendingIntent open=PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);PendingIntent pause=PendingIntent.getService(this,1,new Intent(this,ReaderService.class).setAction(PAUSE),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);return new Notification.Builder(this,CHANNEL).setContentTitle(title).setContentText(message).setSmallIcon(android.R.drawable.ic_media_play).setContentIntent(open).addAction(android.R.drawable.ic_media_pause,paused?"继续":"暂停",pause).setOngoing(!paused).build();}
  void update(String message){getSystemService(NotificationManager.class).notify(101,notification(message));sendBroadcast(new Intent("com.example.novelreader.STATUS").setPackage(getPackageName()).putExtra("status",message));}
  @Override public IBinder onBind(Intent intent){return null;}
