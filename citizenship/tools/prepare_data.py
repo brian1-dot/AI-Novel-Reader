@@ -141,6 +141,8 @@ for n in range(1,129):
     translated=chinese.get(n,{})
     cn_options=translated.get('answers',[])
     cn_answers=[cn_options[i] if i<len(cn_options) else "" for i in selected]
+    zh_override={23:"里克·斯科特（按面试当天核实）",29:"根据实际居住地址所属选区核实",30:"迈克·约翰逊（按面试当天核实）",38:"唐纳德·特朗普（按面试当天核实）",39:"JD·万斯（按面试当天核实）",48:"司法部长\n国务卿",57:"约翰·罗伯茨（按面试当天核实）",61:"罗恩·德桑蒂斯（按面试当天核实）",62:"塔拉哈西",89:"第一任财政部长",126:"元旦\n阵亡将士纪念日\n圣诞节"}
+    if n in zh_override:cn_answers=[zh_override[n]]
     if n in dynamic:
         answers=[dynamic[n]]
     questions.append({
