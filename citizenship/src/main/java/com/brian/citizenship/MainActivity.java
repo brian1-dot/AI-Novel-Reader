@@ -19,6 +19,7 @@ public class MainActivity extends Activity {
  int current=0,mode=0,mockIndex=0,mockGood=0,mockBad=0,practiceTry=0;
  ArrayList<Integer> mockIds=new ArrayList<>();String expectedSpeech="";
  TextView questionView,answerView;EditText typed;
+ TextView loopCounter,loopQuestion,loopQuestionZh,loopAnswer,loopAnswerZh;
  boolean showChinese=true,showAnswer=true;float speed=.8f;
  final int IN_SPEECH=901;
  final int BG=Color.rgb(248,249,248),TEXT=Color.rgb(23,42,45),TEAL=Color.rgb(25,111,95),MUTED=Color.rgb(107,119,124);
@@ -43,7 +44,17 @@ public class MainActivity extends Activity {
   if(Build.VERSION.SDK_INT>=33)registerReceiver(receiver,f,Context.RECEIVER_NOT_EXPORTED);else registerReceiver(receiver,f);
   home();
  }
- final BroadcastReceiver receiver=new BroadcastReceiver(){public void onReceive(Context context,Intent i){String s=i.getStringExtra("text");if(s!=null)status.setText(s);}};
+ final BroadcastReceiver receiver=new BroadcastReceiver(){public void onReceive(Context context,Intent i){
+  String value=i.getStringExtra("text");if(value!=null)status.setText(value);
+  if("loop_progress".equals(i.getStringExtra("kind"))&&mode==2){
+   int number=i.getIntExtra("questionIndex",0);
+   int cycle=i.getIntExtra("cycle",1),cycles=i.getIntExtra("cycles",1);
+   int item=i.getIntExtra("item",1),items=i.getIntExtra("items",5);
+   int repeat=i.getIntExtra("repeat",1);
+   boolean answer=i.getBooleanExtra("isAnswer",false);
+   updateLoopCard(number,cycle,cycles,item,items,answer,repeat);
+  }
+ }};
  int dp(int x){return (int)(getResources().getDisplayMetrics().density*x+.5f);}
  String asset(String file)throws Exception{try(InputStream f=getAssets().open(file);ByteArrayOutputStream b=new ByteArrayOutputStream()){byte[] a=new byte[8192];int n;while((n=f.read(a))!=-1)b.write(a,0,n);return b.toString("UTF-8");}}
  TextView text(String s,int size,int color,boolean bold){TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(color);if(bold)t.setTypeface(null,1);t.setPadding(0,dp(4),0,dp(6));return t;}
@@ -86,13 +97,35 @@ public class MainActivity extends Activity {
   actions("全部官方备选答案",()->new AlertDialog.Builder(this).setTitle("第"+(current+1)+"题·官方全部答案").setMessage(allAnswers(o)).setPositiveButton("关闭",null).show(),"中文开/关",()->{showChinese=!showChinese;civics(current);});
  }
  String allAnswers(JSONObject o){JSONArray a=o.optJSONArray("all_accepted_answers");if(a==null)return "";StringBuilder b=new StringBuilder();for(int i=0;i<a.length();i++)b.append(i+1).append(". ").append(a.optString(i)).append("\n");return b.toString();}
- void listenMenu(){reset(2);heading("循环听题");para("默认每道题：问题2遍、答案2遍；每组10轮。");
-  subtitle("英文自然稍慢，题间停顿。后台播放可通过通知栏暂停、继续或停止。");
+ void updateLoopCard(int questionNumber,int cycle,int cycles,int itemNumber,int itemCount,boolean answer,int repetition){
+  if(mode!=2||loopCounter==null||loopQuestion==null||loopAnswer==null)return;
+  JSONObject q=item(questionNumber);
+  loopCounter.setText("第 "+(questionNumber+1)+" / 128 题　·　本组 "+itemNumber+"/"+itemCount+" 题\n第 "+cycle+" / "+cycles+" 轮　·　"+(answer?"正在读答案":"正在读问题")+"（第"+repetition+"遍）");
+  loopQuestion.setText(q.optString("question"));
+  loopQuestionZh.setText(q.optString("question_zh","中文解释暂缺"));
+  loopAnswer.setText(q.optString("answer"));
+  loopAnswerZh.setText(q.optString("answer_zh",""));
+  int activeBackground=Color.rgb(254,237,159),inactiveBackground=Color.rgb(238,246,242);
+  loopQuestion.setBackgroundColor(answer?inactiveBackground:activeBackground);
+  loopAnswer.setBackgroundColor(answer?activeBackground:inactiveBackground);
+ }
+ void listenMenu(){reset(2);heading("循环听题");subtitle("英文问题读2遍、完整英文答案读2遍；读到哪里，黄色就标记哪里。");
+  loopCounter=text("",16,TEAL,true);loopCounter.setPadding(dp(10),dp(12),dp(10),dp(12));body.addView(loopCounter);
+  loopQuestion=text("",22,TEXT,true);loopQuestion.setPadding(dp(12),dp(14),dp(12),dp(14));loopQuestion.setLineSpacing(dp(5),1.1f);body.addView(loopQuestion);
+  loopQuestionZh=text("",15,MUTED,false);loopQuestionZh.setPadding(dp(10),dp(6),dp(10),dp(14));body.addView(loopQuestionZh);
+  loopAnswer=text("",22,TEAL,true);loopAnswer.setPadding(dp(12),dp(14),dp(12),dp(14));loopAnswer.setLineSpacing(dp(4),1.05f);body.addView(loopAnswer);
+  loopAnswerZh=text("",15,MUTED,false);loopAnswerZh.setPadding(dp(10),dp(8),dp(10),dp(16));body.addView(loopAnswerZh);
+  updateLoopCard(current,1,10,1,5,false,1);
+  subtitle("可选择本组题数、循环轮数。切换新题时，问题和答案会自动更新。");
   Spinner amount=new Spinner(this);amount.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"5题","10题","20题"}));body.addView(amount);
   Spinner loops=new Spinner(this);loops.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"1轮","3轮","5轮","10轮"}));loops.setSelection(3);body.addView(loops);
-  button("▶ 从第 "+(current+1)+" 题开始循环",()->{int[] nums={5,10,20},cycles={1,3,5,10};
-    Intent i=new Intent(this,StudyService.class).setAction("LOOP").putExtra("start",current).putExtra("count",nums[amount.getSelectedItemPosition()]).putExtra("loops",cycles[loops.getSelectedItemPosition()]).putExtra("rate",speed).putExtra("pause",2800);
-    startForegroundService(i);status.setText("循环朗读已经开始");});
+  button("▶ 从第 "+(current+1)+" 题开始循环",()->{
+    int[] nums={5,10,20},cycles={1,3,5,10};
+    int amountValue=nums[amount.getSelectedItemPosition()],rounds=cycles[loops.getSelectedItemPosition()];
+    updateLoopCard(current,1,rounds,1,amountValue,false,1);
+    Intent intent=new Intent(this,StudyService.class).setAction("LOOP").putExtra("start",current).putExtra("count",amountValue).putExtra("loops",rounds).putExtra("rate",speed).putExtra("pause",2800);
+    startForegroundService(intent);status.setText("循环朗读已经开始");
+  });
   actions("⏸ 暂停/继续",()->startService(new Intent(this,StudyService.class).setAction("PAUSE")),"■ 停止",()->stop());
   button("⏲ 设定睡眠定时",()->timer());
  }
