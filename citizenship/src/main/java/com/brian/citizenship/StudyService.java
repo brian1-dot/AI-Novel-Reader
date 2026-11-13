@@ -29,10 +29,11 @@ public class StudyService extends Service implements TextToSpeech.OnInitListener
     int begin=intent.getIntExtra("start",0),count=intent.getIntExtra("count",5),loops=intent.getIntExtra("loops",10);
     try{
      JSONArray a=new JSONArray(readAsset("civics.json"));
-     count=Math.max(1,Math.min(count,a.length()));loops=Math.max(1,Math.min(loops,20));
+     begin=Math.max(0,Math.min(begin,a.length()-1));
+     count=Math.max(1,Math.min(count,a.length()-begin));loops=Math.max(1,Math.min(loops,20));
      loopBegin=begin;loopCount=count;loopRounds=loops;
      for(int cycle=0;cycle<loops;cycle++)for(int x=0;x<count;x++){
-      JSONObject q=a.getJSONObject((begin+x)%a.length());
+      JSONObject q=a.getJSONObject(begin+x);
       queue.add(q.optString("question"));queue.add(q.optString("question"));
       String answer=q.optString("answer");
       queue.add(answer);queue.add(answer);
@@ -66,7 +67,7 @@ public class StudyService extends Service implements TextToSpeech.OnInitListener
    int item=(position/4)%loopCount;
    int cycle=(position/4)/loopCount+1;
    int part=position%4;
-   int number=((loopBegin+item)%128+128)%128;
+   int number=loopBegin+item;
    Intent progress=new Intent(ACTION).setPackage(getPackageName());
    progress.putExtra("kind","loop_progress");
    progress.putExtra("questionIndex",number);
