@@ -76,7 +76,7 @@ if len(eng)!=128 or any(not eng[n]['answers'] for n in range(1,129)):
 
 zhbin=fetch([ZH],needed=False)
 chinese=records(extract(zhbin),'zh') if zhbin else {}
-print("Chinese translations",len(chinese),flush=True)
+print("Chinese translations",len(chinese),"missing",[n for n in range(1,129) if n not in chinese],flush=True)
 required={10:2,48:2,65:3,67:2,69:2,81:5,126:3}
 # Handpicked *full* USCIS accepted alternatives, preserving the number of items required.
 chosen={
