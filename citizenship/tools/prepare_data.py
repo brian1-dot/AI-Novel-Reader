@@ -76,6 +76,8 @@ if len(eng)!=128 or any(not eng[n]['answers'] for n in range(1,129)):
 
 zhbin=fetch([ZH],needed=False)
 chinese=records(extract(zhbin),'zh') if zhbin else {}
+if 89 not in chinese:
+    chinese[89]={"q":"亚历山大·汉密尔顿因哪些成就而闻名？说出一项。","answers":["第一任财政部长","《联邦党人文集》作者之一","帮助建立美国第一银行","乔治·华盛顿将军的助手","大陆会议成员"]}
 print("Chinese translations",len(chinese),"missing",[n for n in range(1,129) if n not in chinese],flush=True)
 required={10:2,48:2,65:3,67:2,69:2,81:5,126:3}
 # Handpicked *full* USCIS accepted alternatives, preserving the number of items required.
@@ -170,7 +172,14 @@ def vocab(pdfurl):
         if re.fullmatch(r"[A-Za-z][A-Za-z .'-]*",t) and t.lower() not in skip:
             if t not in words:words.append(t)
     return words
-rv=vocab(READ);wv=vocab(WRITE)
+# Explicitly transcribed entries from the USCIS reading and writing vocabulary tables.
+# PDF text extraction runs columns together, so table-shaped PDFs cannot be parsed line by line.
+OFFICIAL_READING = """Abraham Lincoln|George Washington|American flag|Bill of Rights|capital|citizen|city|Congress|country|Father of Our Country|government|President|right|Senators|state/states|White House|America|United States|U.S.|Presidents' Day|Memorial Day|Flag Day|Independence Day|Labor Day|Columbus Day|Thanksgiving|How|What|When|Where|Who|Why|can|come|do/does|elects|have/has|is/are/was/be|lives/lived|meet|name|pay|vote|want|a|for|here|in|of|on|the|to|we|colors|dollar bill|first|largest|many|most|north|one|people|second|south""".split("|")
+OFFICIAL_WRITING = """Adams|Lincoln|Washington|American Indians|capital|citizens|Civil War|Congress|Father of Our Country|flag|free|freedom of speech|President|right|Senators|state/states|White House|Alaska|California|Canada|Delaware|Mexico|New York City|United States|Washington|Washington, D.C.|February|May|June|July|September|October|November|Presidents' Day|Memorial Day|Flag Day|Independence Day|Labor Day|Columbus Day|Thanksgiving|can|come|elect|have/has|is/was/be|lives/lived|meets|pay|vote|want|and|during|for|here|in|of|on|the|to|we|blue|dollar bill|fifty/50|first|largest|most|north|one|one hundred/100|people|red|second|south|taxes|white""".split("|")
+rv=OFFICIAL_READING
+wv=OFFICIAL_WRITING
+assert len(rv)==64, len(rv)
+assert len(wv)==75, len(wv)
 print("Vocab counts",len(rv),len(wv),flush=True)
 # Curated factual study sentences, not official examination prompts.
 subjects=["George Washington","Abraham Lincoln","Thomas Jefferson","The President","The Senate","The White House","The Constitution","The American flag","The United States","Congress"]
