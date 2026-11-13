@@ -67,6 +67,7 @@ def records(txt,lang):
 eng=records(extract(fetch(URLS)),'en')
 print("English count",len(eng),"missing",[n for n in range(1,129) if n not in eng],flush=True)
 if len(eng)!=128 or any(not eng[n]['answers'] for n in range(1,129)):
+    print("Missing answers",[(n,eng.get(n)) for n in range(1,129) if n in eng and not eng[n]["answers"]],flush=True)
     print("Examples",json.dumps(list(eng.items())[:3],ensure_ascii=False),flush=True)
     raise RuntimeError("Do not ship partial civics dataset")
 
