@@ -1,0 +1,78 @@
+name: Build Citizenship AI APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'citizenship/**'
+      - '.github/workflows/build-citizenship.yml'
+      - 'settings.gradle'
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Android SDK
+        run: echo "sdk.dir=$ANDROID_HOME" > local.properties
+      - name: Install PDF parser
+        run: python -m pip install --user pymupdf
+      - name: Download and verify USCIS 128 civics questions
+        id: data
+        continue-on-error: true
+        run: |
+          python citizenship/tools/prepare_data.py 2>&1 | tee data.log
+          test "${PIPESTATUS[0]}" = 0
+      - name: Compile Citizenship AI APK
+        id: compile
+        if: steps.data.outcome == 'success'
+        continue-on-error: true
+        run: |
+          gradle --no-daemon :citizenship:assembleDebug > build-citizenship.log 2>&1
+          exit_code=$?
+          tail -60 build-citizenship.log
+          exit "$exit_code"
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Citizenship-Build-Diagnostics
+          path: |
+            data.log
+            build-citizenship.log
+      - name: Upload APK
+        if: steps.data.outcome == 'success' && steps.compile.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: US-Citizenship-AI-APK
+          path: citizenship/build/outputs/apk/debug/citizenship-debug.apk
+      - name: Report result in issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ steps.data.outcome }}" = "success" ] && [ "${{ steps.compile.outcome }}" = "success" ]; then
+            gh issue create --title "CITIZENSHIP APK SUCCESS ${GITHUB_SHA:0:7}" --body "Build successful. Download US-Citizenship-AI-APK: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          else
+            {
+              echo "Build failed. Commit: ${GITHUB_SHA}"
+              echo "URL https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+              echo '~~~'
+              tail -80 data.log 2>/dev/null || true
+              tail -80 build-citizenship.log 2>/dev/null || true
+              echo '~~~'
+            } > citizenship-error.md
+            gh issue create --title "CITIZENSHIP APK ERROR ${GITHUB_SHA:0:7}" --body-file citizenship-error.md
+          fi
+      - name: Fail if build failed
+        if: steps.data.outcome != 'success' || steps.compile.outcome != 'success'
+        run: exit 1
