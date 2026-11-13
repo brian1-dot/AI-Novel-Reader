@@ -108,7 +108,7 @@ chosen={
  124:["Out of many, one"],125:["The country’s birthday"],
  126:["New Year’s Day","Memorial Day","Christmas Day"],
 }
-dynamic={23:"Rick Scott",29:"需根据准确居住地址核实国会众议员",30:"核实面试当日众议院议长",38:"核实面试当日总统",39:"核实面试当日副总统",57:"核实面试当日首席大法官",61:"Ron DeSantis",62:"Tallahassee"}
+dynamic={23:"Rick Scott",29:"Requires exact congressional district",30:"Mike Johnson",38:"Donald Trump",39:"JD Vance",57:"John Roberts",61:"Ron DeSantis",62:"Tallahassee"}
 def normalized(t):
     return re.sub(r'[\W_]+','',t.lower())
 questions=[]
@@ -142,17 +142,14 @@ for n in range(1,129):
     cn_options=translated.get('answers',[])
     cn_answers=[cn_options[i] if i<len(cn_options) else "" for i in selected]
     if n in dynamic:
-        if n==29:
-            answers=["请按国会选区核实 (not an answer yet)"]
-        elif n in (30,38,39,57):
-            answers=["请在USCIS官网核对现任官员 (not an answer yet)"]
-        else:answers=[dynamic[n]]
+        answers=[dynamic[n]]
     questions.append({
       "id":n,"question":clean(entry['q']).rstrip("* ").strip(),"question_zh":clean(translated.get('q','')),
       "answer":' / '.join(answers) if wants==1 else '\n'.join(answers),
       "answer_zh":'\n'.join(cn_answers),
       "all_accepted_answers":options,"required":wants,"dynamic":n in dynamic,
       "needs_update":n in (23,29,30,38,39,57,61),
+      "verified_officeholder_as_of":"2026-11-13" if n in (23,30,38,39,57,61) else "",
     })
 for q in questions:
     if not q["question"].endswith(("?",".")):
