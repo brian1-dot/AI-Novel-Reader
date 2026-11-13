@@ -119,14 +119,21 @@ for n in range(1,129):
         selected=[]
         for wish in picks:
             match=next((i for i,a in enumerate(options) if normalized(a)==normalized(wish)),None)
-            if match is None:raise RuntimeError(f"Handpicked answer not listed for #{n}: {wish} vs {options}")
+            if match is None:
+                print(f"Handpicked alternative mismatch for #{n}: {wish}; selecting from official list",flush=True)
+                selected=[]
+                break
             selected.append(match)
     else:
+        selected=sorted(range(len(options)),key=lambda i:len(options[i]))[:wants]
+    if not selected:
         selected=sorted(range(len(options)),key=lambda i:len(options[i]))[:wants]
     if len(selected)!=wants:raise RuntimeError(f"Wrong answer count #{n}")
     # English parentheses represent optional official parts; choose pronounceable complete alternative.
     def spoken(s):
-        s=re.sub(r'\([^)]*\)','',s).strip() if s.startswith('(') else s
+        s=re.sub(r'\(or [^)]*\)','',s)
+        s=re.sub(r'^\(([^)]*)\)',r'\1',s)
+        s=re.sub(r'\s+\([^)]*\)','',s)
         return clean(s)
     answers=[spoken(options[i]) for i in selected]
     translated=chinese.get(n,{})
